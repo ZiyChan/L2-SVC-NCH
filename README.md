@@ -10,7 +10,7 @@
 
 
 
-#### L2-SVC转化版 - Done
+#### L2-SVC转化版
 
 ----
 
@@ -32,26 +32,25 @@ from model.Lib_L2_SVC_NCH import L2_SVC_NCH_ByL2SVC
 # global parameter
 C = 1.0
 gamma = 5.0
-
 # 自定义核矩阵 K' <- K + 1/C*I
-def kernel_mat(X1, X2):
-    K = np.zeros((len(X1), len(X2)), dtype=np.float64)
-    for i in range(len(X1)):
-        for j in range(i, len(X2)):
-            K[i][j] = linalg.norm(X1[i] - X2[j]) ** 2
-            K[j][i] = K[i][j]
-    K *= -gamma
-    K = np.exp(K)
-    K += 1.0 / C * np.identity(len(X1)) 
-    return K
-
-# 初始化
-model = Luo_SVM_BySklearnSVC(kernel_mat=kernel_mat, kernel_name='kernel_gaussian', gamma=gamma, C=np.PINF, myC=C, max_iter=2000, tol=1e-3, need_optValue=True)
+def gram_matrix(X1, X2):
+      # K = np.zeros((len(X1), len(X1)), dtype=np.float64)
+      K = np.exp(-gamma * ((X1**2).sum(1).reshape(-1, 1) + (X1**2).sum(1) - 2 * X1 @ X1.T))
+      K += 1.0 / C * np.identity(len(X1))
+      return K
+# 模型初始化
+model = L2_SVC_NCH_ByL2SVC(kernel_mat=gram_matrix, 
+                           kernel_name='kernel_gaussian', 
+                           gamma=gamma, 
+                           C=np.PINF, 
+                           myC=C, 
+                           max_iter=2000, 
+                           tol=1e-3)
 # 训练
 model.fit(X_train, y_train)
 # 预测
 y_pred = model.predict(X_test)
-print('Accuracy of Luo_SVM by L2-SVM SKlearn: ', accuracy_score(y_test, y_pred))
+print('Accuracy: ', accuracy_score(y_test, y_pred))
 # 获取目标函数值（loss）
 model.opt_value
 ```
@@ -62,7 +61,7 @@ model.opt_value
 
 
 
-#### 原生python版 - Done
+#### 原生python版
 
 ----
 
@@ -108,25 +107,25 @@ $$
 ```python
 # 包目录：model
 # 文件名：Lib_L2_SVC_NCH.py
-# class：L2_SVC_NCH_ByPython_v1, L2_SVC_NCH_ByPython_v2
-from model.Lib_L2_SVC_NCH import L2_SVC_NCH_ByPython_v1, L2_SVC_NCH_ByPython_v2
+# class：L2_SVC_NCH_Python
+from model.Lib_L2_SVC_NCH import L2_SVC_NCH_Python
 
-# 初始化
-model = L2_SVC_NCH_ByPython_v1(kernel_name='kernel_gaussian', C=0.1, gamma=5.0, max_iter=2000, epsilon=1e-3, need_optValue=True)
-# model = L2_SVC_NCH_ByPython_v2(kernel_name='kernel_gaussian', C=0.1, gamma=5.0, max_iter=2000, epsilon=1e-3, need_optValue=True) 
+# 超参定义
+gamma, C = 0.03125, 1
+# 模型初始化
+luo_svm_smo = L2_SVC_NCH_Python(C=C, 
+                                gamma=gamma, 
+                                max_iter=2000, 
+                                epsilon=1e-3, 
+                                need_optValue=True) 
 # 训练
 model.fit(X_train, y_train)
 # 预测
 y_pred = model.predict(X_test)
-print('Accuracy of Luo_SVM by SMO: ', accuracy_score(y_test, y_pred))
+print('Accuracy: ', accuracy_score(y_test, y_pred))
 # 获取目标函数值（loss）
-model.opt_value 
+model.opt_value
 ```
-
-**版本说明**
-
-- L2_SVC_NCH_ByPython_v1：标准版，按照算法步骤实现；
-- L2_SVC_NCH_ByPython_v2：在v1版本的基础上，当最优解无法迭代时采取次优解选取策略，一定程度优化$\alpha$的迭代过程。
 
 
 
@@ -144,10 +143,10 @@ model.opt_value
 
 - Result
 
-  | Dataset\Method | L2-SVC-NCH(py_v1) | L2-SVC-NCH (py_v2) | L2-SVC-NCH(L2-SVC转化版) |    标准SVC    |
-  | :------------: | :---------------: | :----------------: | :----------------------: | :-----------: |
-  |     Heart      |   0.8148±0.0524   |   0.8407±0.0416    |      0.8296±0.0319       | 0.8222±0.0222 |
-  |   Ionosphere   |   0.9211±0.0276   |   0.9267±0.0382    |      0.9296±0.0295       | 0.9296±0.0295 |
-  |   Australian   |   0.829±0.0232    |   0.8217±0.0218    |       0.842±0.0148       | 0.8464±0.0133 |
-  |    Diabets     |   0.7377±0.0177   |    0.726±0.027     |      0.7506±0.0301       | 0.7506±0.0274 |
-  |     German     |   0.714±0.0111    |    0.724±0.0124    |       0.738±0.0196       | 0.746±0.0177  |
+  | Dataset\Method | L2_SVC_NCH_Python | L2_SVC_NCH_ByL2SVC |  sklearn SVC  |
+  | :------------: | :---------------: | :----------------: | :-----------: |
+  |     Heart      |   0.8407±0.0416   |   0.8296±0.0319    | 0.8222±0.0222 |
+  |   Ionosphere   |   0.9267±0.0382   |   0.9296±0.0295    | 0.9296±0.0295 |
+  |   Australian   |                   |    0.842±0.0148    | 0.8464±0.0133 |
+  |    Diabets     |                   |   0.7506±0.0301    | 0.7506±0.0274 |
+  |     German     |                   |    0.738±0.0196    | 0.746±0.0177  |
